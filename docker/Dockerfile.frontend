@@ -1,0 +1,51 @@
+##engitorquemap/docker/Dockerfile.frontend
+
+# Multi-stage build for EngiTorqueMap Frontend
+# Serves static files with nginx for STEP 6 real-time visualization
+
+# Stage 1: Build stage (if using build tools)
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# Copy frontend files
+COPY frontend/ /app/
+
+# If you need to build assets (e.g., with webpack, vite)
+# RUN npm install && npm run build
+
+# For now, we're serving static files directly
+# So we can skip the build step
+
+# Stage 2: Production stage
+FROM nginx:alpine
+
+# Install additional tools
+RUN apk add --no-cache curl
+
+# Remove default nginx config
+RUN rm /etc/nginx/conf.d/default.conf
+
+# Copy custom nginx configuration
+COPY docker/nginx.conf /etc/nginx/conf.d/
+
+# Copy frontend files from builder or directly
+COPY frontend/ /usr/share/nginx/html/
+
+# Create directories for logs
+RUN mkdir -p /var/log/nginx
+
+# Expose port 80
+EXPOSE 80
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost/health || exit 1
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
+
+# Labels for metadata
+LABEL maintainer="EngiTorqueMap Team"
+LABEL version="1.0.0"
+LABEL description="EngiTorqueMap Frontend - Real-time racing telemetry visualization"

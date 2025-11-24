@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<!--frontend/index.html  -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EngiTorqueMap - Real-Time Energy Field Maps</title>
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="/static/css/styles.css">
+    
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="logo">EngiTorqueMap</h1>
+                <p class="tagline">Real-Time Energy Field Maps + Predictive Driver Time-Shift Optimizer</p>
+                <div class="header-status">
+                    <span id="connection-status" class="status-indicator">●</span>
+                    <span id="status-text">Connecting...</span>
+                </div>
+            </div>
+            <nav class="nav-tabs">
+                <button class="nav-tab active" data-view="dashboard">Dashboard</button>
+                <button class="nav-tab" data-view="flowgrid">FlowGrid Live</button>
+                <button class="nav-tab" data-view="timeshift">Time-Shift Predictor</button>
+                <button class="nav-tab" data-view="strategy">Strategy Center</button>
+                <button class="nav-tab" data-view="forensic">Forensic Replay</button>
+                <button class="nav-tab" data-view="3d">3D Hologram</button>
+            </nav>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Dashboard View -->
+            <div id="dashboard-view" class="view active">
+                <div class="dashboard-grid">
+                    <!-- Track Selection -->
+                    <div class="card">
+                        <h2>Track Selection</h2>
+                        <select id="track-select" class="select-input">
+                            <option value="">Select Track...</option>
+                        </select>
+                        <div id="track-info" class="track-info"></div>
+                    </div>
+
+                    <!-- Energy Grid Overview -->
+                    <div class="card card-wide">
+                        <h2>Energy Grid Overview</h2>
+                        <div id="energy-grid-map"></div>
+                    </div>
+
+                    <!-- Driver Selection -->
+                    <div class="card">
+                        <h2>Driver Analysis</h2>
+                        <select id="driver-select" class="select-input">
+                            <option value="">Select Driver...</option>
+                        </select>
+                        <div id="driver-signature"></div>
+                    </div>
+
+                    <!-- Real-Time Metrics -->
+                    <div class="card">
+                        <h2>Real-Time Metrics</h2>
+                        <div id="realtime-metrics">
+                            <div class="metric">
+                                <span class="metric-label">Speed</span>
+                                <span id="metric-speed" class="metric-value">-- m/s</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Energy Efficiency</span>
+                                <span id="metric-efficiency" class="metric-value">--%</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Brake Power</span>
+                                <span id="metric-brake" class="metric-value">-- kW</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Energy Timeline -->
+                    <div class="card card-full">
+                        <h2>Energy Timeline</h2>
+                        <div id="energy-timeline-chart"></div>
+                    </div>
+
+                    <!-- Quick Stats -->
+                    <div class="card">
+                        <h2>Session Statistics</h2>
+                        <div id="session-stats"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FlowGrid Live View -->
+            <div id="flowgrid-view" class="view">
+                <div class="flowgrid-container">
+                    <div class="flowgrid-controls">
+                        <h2>Real-Time FlowGrid</h2>
+                        <button id="start-streaming" class="btn btn-primary">Start Streaming</button>
+                        <button id="stop-streaming" class="btn btn-secondary" disabled>Stop Streaming</button>
+                        <div class="streaming-status">
+                            <span id="stream-status">Ready</span>
+                            <span id="data-rate">0 Hz</span>
+                        </div>
+                    </div>
+                    <div class="flowgrid-main">
+                        <div id="flowgrid-canvas"></div>
+                        <div id="flowgrid-overlay">
+                            <div class="overlay-legend">
+                                <h3>Energy Zones</h3>
+                                <div class="legend-item">
+                                    <span class="legend-color" style="background: #ff0000;"></span>
+                                    High Braking
+                                </div>
+                                <div class="legend-item">
+                                    <span class="legend-color" style="background: #00ff00;"></span>
+                                    High Acceleration
+                                </div>
+                                <div class="legend-item">
+                                    <span class="legend-color" style="background: #0000ff;"></span>
+                                    Cornering Load
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flowgrid-sidebar">
+                        <h3>Energy Hotspots</h3>
+                        <div id="hotspots-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Time-Shift Predictor View -->
+            <div id="timeshift-view" class="view">
+                <div class="timeshift-container">
+                    <div class="timeshift-header">
+                        <h2>Time-Shift Predictor</h2>
+                        <p>AI-powered suggestions for performance optimization</p>
+                    </div>
+                    
+                    <div class="timeshift-inputs">
+                        <div class="input-group">
+                            <label>Driver ID</label>
+                            <input type="text" id="ts-driver-id" placeholder="D001">
+                        </div>
+                        <div class="input-group">
+                            <label>Track</label>
+                            <select id="ts-track-select"></select>
+                        </div>
+                        <button id="generate-suggestions" class="btn btn-primary">Generate Suggestions</button>
+                    </div>
+
+                    <div id="suggestions-container" class="suggestions-grid"></div>
+
+                    <div class="timeshift-visualization">
+                        <h3>Delta Prediction Visualization</h3>
+                        <div id="delta-chart"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Strategy Center View -->
+            <div id="strategy-view" class="view">
+                <div class="strategy-container">
+                    <div class="strategy-header">
+                        <h2>IoT Strategy Command Center</h2>
+                        <div class="race-timer">
+                            <span id="race-time">00:00:00</span>
+                        </div>
+                    </div>
+
+                    <div class="strategy-grid">
+                        <!-- Alerts Panel -->
+                        <div class="card alert-panel">
+                            <h3>Strategy Alerts</h3>
+                            <div id="strategy-alerts"></div>
+                        </div>
+
+                        <!-- Pit Strategy -->
+                        <div class="card">
+                            <h3>Pit Strategy</h3>
+                            <div id="pit-recommendation"></div>
+                        </div>
+
+                        <!-- Pace Strategy -->
+                        <div class="card">
+                            <h3>Pace Strategy</h3>
+                            <div id="pace-strategy"></div>
+                        </div>
+
+                        <!-- Opponent Analysis -->
+                        <div class="card">
+                            <h3>Opponent Analysis</h3>
+                            <select id="opponent-select"></select>
+                            <div id="opponent-analysis"></div>
+                        </div>
+
+                        <!-- Race Position -->
+                        <div class="card">
+                            <h3>Race Position</h3>
+                            <div id="race-position"></div>
+                        </div>
+
+                        <!-- Tire Management -->
+                        <div class="card">
+                            <h3>Tire Management</h3>
+                            <div id="tire-management"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Forensic Replay View -->
+            <div id="forensic-view" class="view">
+                <div class="forensic-container">
+                    <h2>Post-Event Forensic Replay</h2>
+                    
+                    <div class="forensic-controls">
+                        <label>Session ID:</label>
+                        <input type="text" id="forensic-session-id" placeholder="session_001">
+                        <button id="load-forensic" class="btn btn-primary">Load Replay</button>
+                    </div>
+
+                    <div class="forensic-content">
+                        <div class="forensic-timeline">
+                            <h3>Energy Drift Patterns</h3>
+                            <div id="drift-patterns-chart"></div>
+                        </div>
+
+                        <div class="forensic-analysis">
+                            <div class="card">
+                                <h3>Grip Failures</h3>
+                                <div id="grip-failures"></div>
+                            </div>
+
+                            <div class="card">
+                                <h3>Tire Stress Accumulation</h3>
+                                <div id="tire-stress-chart"></div>
+                            </div>
+
+                            <div class="card">
+                                <h3>Energy Efficiency Over Time</h3>
+                                <div id="efficiency-timeline"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3D Hologram View -->
+            <div id="3d-view" class="view">
+                <div class="hologram-container">
+                    <h2>3D Energy Flow Hologram</h2>
+                    
+                    <div class="hologram-controls">
+                        <button id="play-hologram" class="btn btn-primary">Play</button>
+                        <button id="pause-hologram" class="btn btn-secondary">Pause</button>
+                        <button id="reset-hologram" class="btn btn-secondary">Reset</button>
+                        <label>
+                            <input type="checkbox" id="show-delta-overlay"> Show Time-Shift Deltas
+                        </label>
+                    </div>
+
+                    <div id="threejs-container"></div>
+
+                    <div class="hologram-info">
+                        <div id="hologram-stats"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>EngiTorqueMap v1.0.0 | Real-Time Energy Field Maps + Predictive Driver Time-Shift Optimizer</p>
+            <p>Data sources: <a href="https://trddev.com/hackathon-2025/" target="_blank">TRD Hackathon</a> | 
+               <a href="http://usac.alkamelna.com/" target="_blank">USAC Timing</a></p>
+        </footer>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/visualization.js"></script>
+    <script src="/static/js/flowgrid.js"></script>
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

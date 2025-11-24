@@ -1,0 +1,2595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EngiTorqueMap: Real-Time Energy Field Maps + Predictive Driver Time-Shift Optimizer</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <!-- D3.js -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- PapaParse for CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    
+    <!-- Plotly for advanced charts -->
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+    
+    <!-- Animate.css -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+
+    <!-- Three.js for 3D visualization -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <style>
+        :root {
+            --primary-blue: #2563eb;
+            --primary-purple: #7c3aed;
+            --success-green: #10b981;
+            --danger-red: #ef4444;
+            --warning-orange: #f59e0b;
+            --dark-bg: #0f172a;
+            --card-bg: #1e293b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+            --border-color: #475569;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: var(--text-primary);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, var(--primary-blue), var(--primary-purple)) !important;
+            box-shadow: 0 4px 20px rgba(37, 99, 235, 0.3);
+        }
+
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: white !important;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid var(--success-green);
+            border-radius: 2rem;
+            color: var(--success-green);
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--success-green);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.4);
+        }
+
+        .card-header {
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.2), rgba(124, 58, 237, 0.2));
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .card-body {
+            color: var(--text-primary);
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, var(--card-bg), #1a2234);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            border-left: 4px solid var(--primary-blue);
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary-blue), var(--primary-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .metric-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .metric-change {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.85rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.5rem;
+        }
+
+        .metric-change.positive {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success-green);
+        }
+
+        .metric-change.negative {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger-red);
+        }
+
+        .chart-container {
+            position: relative;
+            height: 350px;
+            padding: 1rem;
+        }
+
+        .track-map {
+            height: 450px;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+
+        .driver-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            transition: all 0.3s;
+        }
+
+        .driver-card:hover {
+            background: #2d3748;
+            border-color: var(--primary-blue);
+        }
+
+        .driver-position {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-blue), var(--primary-purple));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .suggestion-card {
+            background: var(--card-bg);
+            border-left: 4px solid var(--success-green);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .suggestion-gain {
+            background: var(--success-green);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 2rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .live-badge {
+            background: var(--danger-red);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            animation: blink 2s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50%, 100% { opacity: 1; }
+            25%, 75% { opacity: 0.3; }
+        }
+
+        .sector-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .sector-fastest {
+            background: rgba(124, 58, 237, 0.2);
+            border: 1px solid var(--primary-purple);
+            color: #c4b5fd;
+        }
+
+        .data-table {
+            color: var(--text-primary);
+        }
+
+        .data-table thead {
+            background: rgba(37, 99, 235, 0.2);
+        }
+
+        .data-table th {
+            border-color: var(--border-color);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.05em;
+            color: var(--text-primary);
+        }
+
+        .data-table td {
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .data-table tbody tr:hover {
+            background: rgba(37, 99, 235, 0.1);
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary-blue);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .alert-custom {
+            border-left: 4px solid;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .alert-high {
+            border-left-color: var(--danger-red);
+            background: rgba(239, 68, 68, 0.15);
+        }
+
+        .alert-medium {
+            border-left-color: var(--warning-orange);
+            background: rgba(245, 158, 11, 0.15);
+        }
+
+        .alert-low {
+            border-left-color: var(--success-green);
+            background: rgba(16, 185, 129, 0.15);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-blue), var(--primary-purple));
+            border: none;
+            font-weight: 600;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #1d4ed8, #6d28d9);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+        }
+
+        .progress-custom {
+            height: 8px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .progress-bar-custom {
+            background: linear-gradient(90deg, var(--primary-blue), var(--primary-purple));
+            border-radius: 4px;
+        }
+
+        .nav-pills .nav-link {
+            color: var(--text-secondary);
+            border-radius: 0.5rem;
+            transition: all 0.3s;
+        }
+
+        .nav-pills .nav-link.active {
+            background: linear-gradient(135deg, var(--primary-blue), var(--primary-purple));
+            color: white;
+        }
+
+        .nav-pills .nav-link:hover {
+            background: rgba(37, 99, 235, 0.2);
+            color: var(--text-primary);
+        }
+
+        .badge-custom {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+        }
+
+        .telemetry-stream {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #0f0;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            height: 200px;
+            overflow-y: auto;
+            font-size: 0.85rem;
+        }
+
+        .weather-widget {
+            background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            color: white;
+        }
+
+        .weather-icon {
+            font-size: 3rem;
+        }
+
+        .form-select, .form-control {
+            background: var(--card-bg);
+            color: var(--text-primary);
+            border-color: var(--border-color);
+        }
+
+        .form-select:focus, .form-control:focus {
+            background: var(--card-bg);
+            color: var(--text-primary);
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 0.25rem rgba(37, 99, 235, 0.25);
+        }
+
+        .form-select option {
+            background: var(--card-bg);
+            color: var(--text-primary);
+        }
+
+        .highlight-banner {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(37, 99, 235, 0.2));
+            border: 2px solid var(--success-green);
+            border-radius: 1rem;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .highlight-banner h3 {
+            color: var(--success-green);
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .highlight-item {
+            background: rgba(37, 99, 235, 0.1);
+            border-left: 3px solid var(--primary-blue);
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .plotly-chart {
+            width: 100%;
+            height: 400px;
+        }
+
+        .hologram-container {
+    position: relative;
+    height: 500px;
+    background: #000;
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.hologram-controls {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    background: rgba(15, 23, 42, 0.9);
+    padding: 1rem 1.5rem;
+    border-radius: 2rem;
+    border: 1px solid var(--border-color);
+}
+
+.hologram-btn {
+    background: linear-gradient(135deg, var(--primary-blue), var(--primary-purple));
+    border: none;
+    color: white;
+    padding: 0.5rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.hologram-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.hologram-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.hologram-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.hologram-checkbox input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-dark navbar-expand-lg sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="bi bi-lightning-charge-fill"></i> EngiTorqueMap: Real-Time Energy Field Maps + Predictive Driver Time-Shift Optimizer
+            </a>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container-fluid p-4">
+        <!-- Highlight Banner -->
+        <div class="highlight-banner animate__animated animate__fadeIn">
+            <h3><i class="bi bi-trophy-fill"></i> Toyota GR Cup Series Real-Time IoT Analytics & Strategy Tool</h3>
+            <div class="row">
+                <div class="col-md-4 mb-2">
+                    <div class="highlight-item">
+                        <strong><i class="bi bi-person-check-fill"></i> Driver Training & Insights</strong><br>
+                        <small>AI-powered technique optimization with time-shift predictions (+0.542s potential gain)</small>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-2">
+                    <div class="highlight-item">
+                        <strong><i class="bi bi-graph-up-arrow"></i> Pre-Event Predictions</strong><br>
+                        <small>Weather-based grip forecasting (0.85-0.94) and optimal strategy planning</small>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-2">
+                    <div class="highlight-item">
+                        <strong><i class="bi bi-clock-history"></i> Post-Event Forensic Analysis</strong><br>
+                        <small>Energy drift detection (±6.1kJ) and tire stress accumulation tracking</small>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-2">
+                    <div class="highlight-item">
+                        <strong><i class="bi bi-broadcast"></i> Real-Time IoT Analytics</strong><br>
+                        <small>100Hz telemetry streaming with live energy flow visualization (Speed/RPM/Brake)</small>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-2">
+                    <div class="highlight-item">
+                        <strong><i class="bi bi-lightbulb-fill"></i> Creative Data Applications</strong><br>
+                        <small>3D Energy holograms, multi-agent AI (4 agents), community detection networks</small>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-2">
+                    <div class="highlight-item">
+                        <strong><i class="bi bi-bullseye"></i> Race-Day Decision Support</strong><br>
+                        <small>Pit strategy optimization (lap 24 target), opponent profiling, risk assessment (92% confidence)</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hero Section -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card animate__animated animate__fadeIn">
+                    <div class="card-body p-4">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h2 class="mb-3">
+                                    <i class="bi bi-speedometer2"></i> <span id="currentTrackName">Indianapolis Motor Speedway</span>
+                                    <span class="live-badge ms-2">LIVE</span>
+                                </h2>
+                                <p class="mb-3 text-secondary">Session: <span id="sessionInfo">Practice 2 | Lap 12 of 20 | Sector 2</span></p>
+                                <div class="d-flex gap-3 flex-wrap">
+                                    <select class="form-select form-select-sm w-auto" id="trackSelect">
+                                        <option value="indianapolis">Indianapolis Motor Speedway</option>
+                                        <option value="barber">Barber Motorsports Park</option>
+                                        <option value="cota">Circuit of the Americas</option>
+                                        <option value="road-america">Road America</option>
+                                        <option value="sebring">Sebring International Raceway</option>
+                                        <option value="sonoma">Sonoma Raceway</option>
+                                        <option value="vir">Virginia International Raceway</option>
+                                    </select>
+                                    <select class="form-select form-select-sm w-auto" id="driverSelect">
+                                        <option value="">All Drivers</option>
+                                    </select>
+                                    <button class="btn btn-sm btn-primary" id="refreshData">
+                                        <i class="bi bi-arrow-clockwise"></i> Refresh Data
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="weather-widget" id="weatherWidget">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <div class="weather-icon"><i class="bi bi-sun-fill"></i></div>
+                                            <h3 class="mb-0" id="weatherTemp">28°C</h3>
+                                            <small id="trackTemp">Track: 35°C</small>
+                                        </div>
+                                        <div class="text-end">
+                                            <div id="weatherHumidity">Humidity: 65%</div>
+                                            <div id="weatherWind">Wind: 12 km/h NE</div>
+                                            <div id="gripLevel">Grip: 0.89</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Key Metrics Row -->
+        <div class="row mb-4" id="metricsRow">
+            <div class="col-md-3 mb-3 animate__animated animate__fadeInUp">
+                <div class="metric-card">
+                    <div class="metric-label">
+                        <i class="bi bi-clock-history"></i> Best Lap Time
+                    </div>
+                    <div class="metric-value" id="bestLapTime">1:12.456</div>
+                    <div class="metric-change positive">
+                        <i class="bi bi-arrow-down"></i> <span id="lapTimeChange">0.234s</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3 animate__animated animate__fadeInUp" style="animation-delay: 0.1s">
+                <div class="metric-card" style="border-left-color: var(--success-green);">
+                    <div class="metric-label">
+                        <i class="bi bi-battery-charging"></i> Energy Efficiency
+                    </div>
+                    <div class="metric-value" id="energyEfficiency">87.3%</div>
+                    <div class="metric-change positive">
+                        <i class="bi bi-arrow-up"></i> <span id="efficiencyChange">2.1%</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3 animate__animated animate__fadeInUp" style="animation-delay: 0.2s">
+                <div class="metric-card" style="border-left-color: var(--warning-orange);">
+                    <div class="metric-label">
+                        <i class="bi bi-speedometer"></i> Top Speed
+                    </div>
+                    <div class="metric-value" id="topSpeed">287</div>
+                    <div class="metric-change positive">
+                        <i class="bi bi-arrow-up"></i> <span id="speedChange">3 km/h</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3 animate__animated animate__fadeInUp" style="animation-delay: 0.3s">
+                <div class="metric-card" style="border-left-color: var(--danger-red);">
+                    <div class="metric-label">
+                        <i class="bi bi-fire"></i> Peak Brake Power
+                    </div>
+                    <div class="metric-value" id="brakePower">148</div>
+                    <div class="metric-change negative">
+                        <i class="bi bi-arrow-up"></i> <span id="brakeChange">5 kW</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Tabs -->
+        <ul class="nav nav-pills mb-4" id="mainTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="overview-tab" data-bs-toggle="pill" data-bs-target="#overview" type="button">
+                    <i class="bi bi-grid-3x3-gap-fill"></i> Overview
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="telemetry-tab" data-bs-toggle="pill" data-bs-target="#telemetry" type="button">
+                    <i class="bi bi-activity"></i> Telemetry
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="timeshift-tab" data-bs-toggle="pill" data-bs-target="#timeshift" type="button">
+                    <i class="bi bi-lightning-fill"></i> Time-Shift
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="drivers-tab" data-bs-toggle="pill" data-bs-target="#drivers" type="button">
+                    <i class="bi bi-people-fill"></i> Drivers
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="strategy-tab" data-bs-toggle="pill" data-bs-target="#strategy" type="button">
+                    <i class="bi bi-bullseye"></i> Strategy
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="mainTabsContent">
+            <!-- Overview Tab -->
+            <div class="tab-pane fade show active" id="overview" role="tabpanel">
+                <div class="row">
+                    <!-- Track Map -->
+                    <div class="col-lg-8 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="bi bi-map"></i> Track Energy Map
+                            </div>
+                            <div class="card-body">
+                                <div id="trackMap" class="track-map"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sector Times -->
+                    <div class="col-lg-4 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="bi bi-flag-fill"></i> Sector Times
+                            </div>
+                            <div class="card-body">
+                                <div id="sectorTimes"></div>
+                            </div>
+                        </div>
+
+                        <!-- Strategy Alerts -->
+                        <div class="card mt-3">
+                            <div class="card-header">
+                                <i class="bi bi-exclamation-triangle-fill"></i> Strategy Alerts
+                            </div>
+                            <div class="card-body" id="strategyAlerts"></div>
+                        </div>
+                    </div>
+
+                    <!-- Energy Timeline Chart -->
+                    <div class="col-12 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="bi bi-graph-up"></i> Energy Flow Timeline
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container">
+                                    <canvas id="energyChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            
+
+            <!-- 3D Energy Flow Hologram -->
+
+<div class="col-12 mb-4">
+    <div class="card">
+        <div class="card-header">
+            <i class="bi bi-box"></i> 3D Energy Flow Hologram
+        </div>
+        <div class="card-body">
+            <div id="hologramContainer" class="hologram-container"></div>
+            <div class="hologram-controls">
+                <button class="hologram-btn" id="hologramPlay">
+                    <i class="bi bi-play-fill"></i> Play
+                </button>
+                <button class="hologram-btn" id="hologramPause" disabled>
+                    <i class="bi bi-pause-fill"></i> Pause
+                </button>
+                <button class="hologram-btn" id="hologramReset">
+                    <i class="bi bi-arrow-counterclockwise"></i> Reset
+                </button>
+                <label class="hologram-checkbox">
+                    <input type="checkbox" id="showTimeShift">
+                    <span>Show Time-Shift Deltas</span>
+                </label>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+            <!-- Telemetry Tab -->
+            <div class="tab-pane fade" id="telemetry" role="tabpanel">
+                <div class="row">
+                    <!-- Live Telemetry Stream -->
+                    <div class="col-lg-6 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="bi bi-broadcast"></i> Live Telemetry Stream
+                                <span class="live-badge float-end">STREAMING</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="telemetry-stream" id="telemetryStream">
+                                    Connecting to telemetry stream...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Speed Profile -->
+                    <div class="col-lg-6 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="bi bi-speedometer2"></i> Speed Profile
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container">
+                                    <canvas id="speedChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- G-Force Analysis -->
+                    <div class="col-lg-6 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="bi bi-crosshair"></i> G-Force Analysis
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container">
+                                    <canvas id="gforceChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Throttle & Brake -->
+                    <div class="col-lg-6 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="bi bi-sliders"></i> Throttle & Brake Inputs
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container">
+                                    <canvas id="inputsChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Speed/RPM/Gear Timeline -->
+                    <div class="col-12 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="bi bi-graph-up"></i> Speed / RPM / Gear Timeline (Interactive)
+                            </div>
+                            <div class="card-body">
+                                <div id="speedRpmGearChart" class="plotly-chart"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gear Usage Heatmap -->
+                    <div class="col-12 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="bi bi-grid-fill"></i> Gear Usage Heatmap (Zoom & Pan)
+                            </div>
+                            <div class="card-body">
+                                <div id="gearHeatmap" class="plotly-chart"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Time-Shift Tab -->
+            <div class="tab-pane fade" id="timeshift" role="tabpanel">
+                <div class="row">
+                    <!-- Time-Shift Suggestions -->
+                    <div class="col-lg-8 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="bi bi-lightbulb-fill"></i> AI-Powered Optimization Suggestions
+                            </div>
+                            <div class="card-body" id="timeshiftSuggestions"></div>
+                        </div>
+                    </div>
+
+                    <!-- Driver Comparison -->
+                    <div class="col-lg-4 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="bi bi-bar-chart-fill"></i> Potential Gain
+</div>
+<div class="card-body">
+<div class="text-center mb-4">
+<h1 class="display-3" style="color: var(--success-green);" id="totalGain">+0.542s</h1>
+<p class="text-secondary">Total possible improvement</p>
+</div>
+<div class="chart-container">
+<canvas id="gainChart"></canvas>
+</div>
+</div>
+</div>
+</div>
+<!-- Energy Impact Analysis -->
+                <div class="col-12 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="bi bi-lightning-charge"></i> Energy Impact Analysis
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="energyImpactChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Drivers Tab -->
+        <div class="tab-pane fade" id="drivers" role="tabpanel">
+            <div class="row">
+                <!-- Driver Leaderboard -->
+                <div class="col-lg-6 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="bi bi-trophy-fill"></i> Session Leaderboard
+                        </div>
+                        <div class="card-body" id="driverLeaderboard"></div>
+                    </div>
+                </div>
+
+                <!-- Driver Energy Signature -->
+                <div class="col-lg-6 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="bi bi-person-badge-fill"></i> Driver Energy Signature
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="driverSignatureChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lap Times Comparison -->
+                <div class="col-12 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="bi bi-graph-up-arrow"></i> Lap Times Comparison
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="lapTimesChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Driver Statistics Table -->
+                <div class="col-12 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="bi bi-card-list"></i> Driver Statistics
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table data-table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th style="color: darkred;">Pos</th>
+                                            <th style="color: darkred;">Driver</th>
+                                            <th style="color: darkred;">Best Lap</th>
+                                            <th style="color: darkred;">Avg Speed</th>
+                                            <th style="color: darkred;">Energy Efficiency</th>
+                                            <th style="color: darkred;">Style</th>
+                                            <th style="color: darkred;">Laps</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="driverStatsBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Box Plot of Avg Speed or Efficiency -->
+                <div class="col-lg-6 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="bi bi-box"></i> Speed Distribution Box Plot
+                        </div>
+                        <div class="card-body">
+                            <div id="speedBoxPlot" class="plotly-chart"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scatter Plot of Avg Speed vs Energy Efficiency -->
+                <div class="col-lg-6 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="bi bi-scatter-chart"></i> Speed vs Efficiency Scatter
+                        </div>
+                        <div class="card-body">
+                            <div id="speedEfficiencyScatter" class="plotly-chart"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Strategy Tab -->
+        <div class="tab-pane fade" id="strategy" role="tabpanel">
+            <div class="row">
+                <!-- Pit Strategy -->
+                <div class="col-lg-4 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="bi bi-flag-fill"></i> Pit Strategy
+                        </div>
+                        <div class="card-body">
+                            <h5 class="mb-3">Recommended Action</h5>
+                            <div class="alert alert-info" style="background: rgba(37, 99, 235, 0.15); border-color: var(--primary-blue); color: var(--text-primary);">
+                                <strong>Extend Stint</strong><br>
+                                Current tire life: 18 laps<br>
+                                Recommended pit: Lap 24<br>
+                                Expected position: P3
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Tire Age</label>
+                                <div class="progress progress-custom">
+                                    <div class="progress-bar-custom" role="progressbar" style="width: 72%"></div>
+                                </div>
+                                <small class="text-secondary">18 of 25 laps</small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Fuel Level</label>
+                                <div class="progress progress-custom">
+                                    <div class="progress-bar-custom" role="progressbar" style="width: 45%"></div>
+                                </div>
+                                <small class="text-secondary">27 liters remaining</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Race Position & Gaps -->
+                <div class="col-lg-4 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="bi bi-bar-chart-steps"></i> Race Position
+                        </div>
+                        <div class="card-body">
+                            <div class="text-center mb-3">
+                                <h1 class="display-1" style="color: var(--primary-blue);">P5</h1>
+                            </div>
+                            <table class="table table-sm data-table">
+                                <tr>
+                                    <td style="color: darkred;">Gap to Leader</td>
+                                    <td class="text-end" style="color: darkred;"><strong>+8.234s</strong></td>
+                                </tr>
+                                <tr>
+                                    <td style="color: darkred;">Gap Ahead</td>
+                                    <td class="text-end" style="color: darkred;"><strong>+1.123s</strong></td>
+                                </tr>
+                                <tr>
+                                    <td style="color: darkred;">Gap Behind</td>
+                                    <td class="text-end" style="color: darkred;"><strong>+2.567s</strong></td>
+                                </tr>
+                                <tr>
+                                    <td style="color: darkred;">Avg Lap Time</td>
+                                    <td class="text-end" style="color: darkred;"><strong>1:13.456</strong></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Opponent Analysis -->
+                <div class="col-lg-4 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="bi bi-eye-fill"></i> Opponent Analysis
+                        </div>
+                        <div class="card-body">
+                            <h6 class="mb-2">P4 - Driver D045</h6>
+                            <div class="mb-3">
+                                <small class="text-secondary">Style: Aggressive Attacker</small>
+                                <div class="progress progress-custom mt-2">
+                                    <div class="progress-bar-custom" role="progressbar" style="width: 85%"></div>
+                                </div>
+                            </div>
+                            <p class="mb-2"><small>
+                                <i class="bi bi-info-circle"></i> High tire degradation detected. Expected pit lap 18-20.
+                            </small></p>
+                            <p class="mb-0"><small>
+                                <strong>Strategy:</strong> Maintain pressure. Undercut opportunity lap 22-24.
+                            </small></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Forecast -->
+                <div class="col-12 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="bi bi-cloud-sun-fill"></i> Weather & Grip Forecast
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="forecastChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Multi-Agent Recommendations -->
+                <div class="col-12 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="bi bi-robot"></i> Multi-Agent AI Recommendations
+                        </div>
+                        <div class="card-body" id="aiRecommendations"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Configuration
+    const TRACK_MAPPING = {
+        'indianapolis': {
+            name: 'Indianapolis Motor Speedway',
+            coords: [39.795, -86.235]
+        },
+        'barber': {
+            name: 'Barber Motorsports Park',
+            coords: [33.545, -86.392]
+        },
+        'cota': {
+            name: 'Circuit of the Americas',
+            coords: [30.133, -97.641]
+        },
+        'road-america': {
+            name: 'Road America',
+            coords: [43.802, -87.989]
+        },
+        'sebring': {
+            name: 'Sebring International Raceway',
+            coords: [27.451, -81.348]
+        },
+        'sonoma': {
+            name: 'Sonoma Raceway',
+            coords: [38.161, -122.457]
+        },
+        'vir': {
+            name: 'Virginia International Raceway',
+            coords: [36.586, -79.321]
+        }
+    };
+    
+    // Global state
+    let currentTrack = 'indianapolis';
+    let currentDriver = '';
+    let telemetryData = [];
+    let driverData = [];
+    let charts = {};
+    
+    let trackMap = null;
+    let metricsInterval = null;
+
+    // Add this after: let charts = {};
+let hologramScene = null;
+let hologramCamera = null;
+let hologramRenderer = null;
+let hologramAnimationId = null;
+let hologramPlaying = false;
+let hologramTime = 0;
+let energyParticles = [];
+let timeShiftMarkers = [];
+let showTimeShiftDeltas = false;
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('EngiTorqueMap Dashboard Initializing...');
+        
+        initializeCharts();
+// Add this line after: initializeCharts();
+//initializeHologram();
+        generateMockData();
+        initializeTrackMap(currentTrack);
+        initializeHologram(); //
+        generateTimeshiftSuggestions();
+        generateStrategyAlerts();
+        generateAIRecommendations();
+        startLiveStream();
+        startMetricsUpdates();
+        
+        
+        // Event listeners
+        document.getElementById('trackSelect').addEventListener('change', function(e) {
+            currentTrack = e.target.value;
+            document.getElementById('currentTrackName').textContent = TRACK_MAPPING[currentTrack].name;
+            initializeTrackMap(currentTrack);
+            generateMockDataForTrack(currentTrack);
+            showNotification(`Switched to ${TRACK_MAPPING[currentTrack].name}`, 'success');
+        });
+        
+        document.getElementById('driverSelect').addEventListener('change', function(e) {
+            currentDriver = e.target.value;
+            if (currentDriver) {
+                filterByDriver(currentDriver);
+                showNotification(`Viewing data for Driver ${currentDriver}`, 'info');
+            } else {
+                generateMockData();
+                showNotification('Viewing all drivers', 'info');
+            }
+        });
+        
+        document.getElementById('refreshData').addEventListener('click', function() {
+            refreshAllData();
+        });
+    });
+
+    // Start continuous metrics updates
+    function startMetricsUpdates() {
+        metricsInterval = setInterval(() => {
+            updateLiveMetrics();
+        }, 2000); // Update every 2 seconds
+    }
+
+    // Update live metrics
+    function updateLiveMetrics() {
+        // Best Lap Time
+        const lapTime = (72 + Math.random() * 2).toFixed(3);
+        document.getElementById('bestLapTime').textContent = `1:${lapTime}`;
+        document.getElementById('lapTimeChange').textContent = `${(Math.random() * 0.5).toFixed(3)}s`;
+        
+        // Energy Efficiency
+        const efficiency = (85 + Math.random() * 5).toFixed(1);
+        document.getElementById('energyEfficiency').textContent = `${efficiency}%`;
+        document.getElementById('efficiencyChange').textContent = `${(Math.random() * 3).toFixed(1)}%`;
+        
+        // Top Speed
+        const topSpeed = Math.floor(280 + Math.random() * 15);
+        document.getElementById('topSpeed').textContent = topSpeed;
+        document.getElementById('speedChange').textContent = `${Math.floor(Math.random() * 5)} km/h`;
+        
+        // Peak Brake Power
+        const brakePower = Math.floor(140 + Math.random() * 20);
+        document.getElementById('brakePower').textContent = brakePower;
+        document.getElementById('brakeChange').textContent = `${Math.floor(Math.random() * 10)} kW`;
+    }
+
+    // Generate mock data
+    function generateMockData() {
+        telemetryData = [];
+        for (let i = 0; i < 500; i++) {
+            telemetryData.push({
+                time: (i * 0.1).toFixed(2),
+                speed: 180 + Math.random() * 100,
+                gear: Math.floor(3 + Math.random() * 3),
+                rpm: 4000 + Math.random() * 3000,
+                throttle: Math.random() * 100,
+                brakeF: Math.random() * 80,
+                brakeR: Math.random() * 60,
+                accX: Math.random() * 2 - 1,
+                accY: Math.random() * 2 - 1,
+                steering: Math.random() * 360 - 180
+            });
+        }
+
+        const drivers = ['D012', 'D045', 'D078', 'D091', 'D123'];
+        const styles = ['Smooth Roller', 'Late Braker', 'Throttle Stabber', 'High Rotation', 'Early Braker'];
+        
+        driverData = drivers.map((id, idx) => ({
+            driver: id,
+            bestLap: 72.456 + idx * 0.2,
+            avgSpeed: 245 - idx * 2,
+            efficiency: 87.3 - idx * 1.2,
+            style: styles[idx],
+            laps: 12
+        }));
+
+        updateChartData();
+        createDriverLeaderboard();
+        createDriverStatistics();
+        updateLapTimesChart();
+        createSpeedRpmGearChart();
+        createGearHeatmap();
+        createSpeedBoxPlot();
+        createSpeedEfficiencyScatter();
+        populateDriverSelect();
+    }
+
+    // Generate mock data for specific track
+    function generateMockDataForTrack(track) {
+        // Adjust data based on track
+        const trackMultipliers = {
+            'indianapolis': 1.0,
+            'barber': 0.9,
+            'cota': 1.1,
+            'road-america': 1.05,
+            'sebring': 0.95,
+            'sonoma': 0.92,
+            'vir': 0.98
+        };
+        
+        const multiplier = trackMultipliers[track] || 1.0;
+        
+        telemetryData = telemetryData.map(d => ({
+            ...d,
+            speed: d.speed * multiplier,
+            throttle: d.throttle * (0.9 + Math.random() * 0.2)
+        }));
+        
+        updateChartData();
+    }
+
+    // Filter by driver
+    function filterByDriver(driverId) {
+        const driver = driverData.find(d => d.driver === driverId);
+        if (driver) {
+            // Update signature chart for this driver
+            const variations = [
+                [75, 68, 82, 80, 85],
+                [68, 72, 88, 75, 78],
+                [80, 62, 78, 85, 82],
+                [65, 78, 85, 70, 88],
+                [72, 65, 90, 78, 80]
+            ];
+            const driverIndex = driverData.findIndex(d => d.driver === driverId);
+            charts.signature.data.datasets[0].data = variations[driverIndex] || variations[0];
+            charts.signature.update();
+        }
+    }
+
+    // Initialize all charts
+    function initializeCharts() {
+        // Energy Timeline Chart
+        const energyCtx = document.getElementById('energyChart').getContext('2d');
+        charts.energy = new Chart(energyCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Speed (km/h)',
+                        data: [],
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Throttle (%)',
+                        data: [],
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        yAxisID: 'y1'
+                    },
+                    {
+                        label: 'Brake (bar)',
+                        data: [],
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: { labels: { color: '#f1f5f9' } },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#cbd5e1',
+                        borderColor: '#475569',
+                        borderWidth: 1
+                    }
+                },
+                scales: {
+                    x: { 
+                        ticks: { color: '#94a3b8' },
+                        grid: { color: '#334155' }
+                    },
+                    y: { 
+                        type: 'linear',
+                        position: 'left',
+                        ticks: { color: '#2563eb' },
+                        grid: { color: '#334155' },
+                        title: { display: true, text: 'Speed (km/h)', color: '#2563eb' }
+                    },
+                    y1: {
+                        type: 'linear',
+                        position: 'right',
+                        ticks: { color: '#10b981' },
+                        grid: { display: false },
+                        title: { display: true, text: 'Throttle/Brake', color: '#10b981' }
+                    }
+                }
+            }
+        });
+
+        // Speed Chart
+        const speedCtx = document.getElementById('speedChart').getContext('2d');
+        charts.speed = new Chart(speedCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Speed (km/h)',
+                    data: [],
+                    borderColor: '#7c3aed',
+                    backgroundColor: 'rgba(124, 58, 237, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { labels: { color: '#f1f5f9' } },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#cbd5e1'
+                    }
+                },
+                scales: {
+                    x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+                    y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
+                }
+            }
+        });
+
+        // G-Force Chart
+        const gforceCtx = document.getElementById('gforceChart').getContext('2d');
+        charts.gforce = new Chart(gforceCtx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'G-Force Plot',
+                    data: [],
+                    backgroundColor: 'rgba(37, 99, 235, 0.5)',
+                    borderColor: '#2563eb',
+                    pointRadius: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { labels: { color: '#f1f5f9' } },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#cbd5e1'
+                    }
+                },
+                scales: {
+                    x: { 
+                        title: { display: true, text: 'Lateral G', color: '#f1f5f9' },
+                        ticks: { color: '#94a3b8' },
+                        grid: { color: '#334155' }
+                    },
+                    y: { 
+                        title: { display: true, text: 'Longitudinal G', color: '#f1f5f9' },
+                        ticks: { color: '#94a3b8' },
+                        grid: { color: '#334155' }
+                    }
+                }
+            }
+        });
+
+        // Throttle & Brake Chart
+        const inputsCtx = document.getElementById('inputsChart').getContext('2d');
+        charts.inputs = new Chart(inputsCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Throttle %',
+                        data: [],
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.1,
+                        fill: true
+                    },
+                    {
+                        label: 'Brake Pressure (bar)',
+                        data: [],
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        tension: 0.1,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { labels: { color: '#f1f5f9' } },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#cbd5e1'
+                    }
+                },
+                scales: {
+                    x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+                    y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
+                }
+            }
+        });
+
+        initializeDriverCharts();
+        initializeStrategyCharts();
+    }
+
+    function initializeDriverCharts() {
+        // Gain Chart
+        const gainCtx = document.getElementById('gainChart').getContext('2d');
+        charts.gain = new Chart(gainCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Turn 1', 'Turn 3', 'Turn 7', 'Turn 12'],
+                datasets: [{
+                    label: 'Time Gain (s)',
+                    data: [0.173, 0.142, 0.115, 0.112],
+                    backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                    borderColor: '#10b981',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { labels: { color: '#f1f5f9' } },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#cbd5e1'
+                    }
+                },
+                scales: {
+                    x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+                    y: { 
+                        ticks: { color: '#94a3b8' },
+                        grid: { color: '#334155' },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // Energy Impact Chart
+        const impactCtx = document.getElementById('energyImpactChart').getContext('2d');
+        charts.impact = new Chart(impactCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Brake Energy Saved', 'Throttle Energy Added', 'Net Energy Change'],
+                datasets: [{
+                    label: 'Energy (kJ)',
+                    data: [6.1, 2.3, -3.8],
+                    backgroundColor: ['#10b981', '#ef4444', '#2563eb'],
+                    borderColor: ['#10b981', '#ef4444', '#2563eb'],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { labels: { color: '#f1f5f9' } },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#cbd5e1'
+                    }
+                },
+                scales: {
+                    x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+                    y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
+                }
+            }
+        });
+
+        // Driver Signature Radar Chart
+        const signatureCtx = document.getElementById('driverSignatureChart').getContext('2d');
+        charts.signature = new Chart(signatureCtx, {
+            type: 'radar',
+            data: {
+                labels: ['Brake Aggression', 'Throttle Aggression', 'Steering Smoothness', 'Cornering', 'Speed Management'],
+                datasets: [{
+                    label: 'Current Driver',
+                    data: [72, 65, 85, 78, 82],
+                    borderColor: '#2563eb',
+                    backgroundColor: 'rgba(37, 99, 235, 0.2)',
+                    pointBackgroundColor: '#2563eb'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { labels: { color: '#f1f5f9' } },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#cbd5e1'
+                    }
+                },
+                scales: {
+                    r: {
+                        ticks: { color: '#94a3b8', backdropColor: 'transparent' },
+                        grid: { color: '#334155' },
+                        pointLabels: { color: '#f1f5f9' }
+                    }
+                }
+            }
+        });
+
+        // Lap Times Chart
+        const lapTimesCtx = document.getElementById('lapTimesChart').getContext('2d');
+        charts.lapTimes = new Chart(lapTimesCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: []
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { labels: { color: '#f1f5f9' } },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#cbd5e1'
+                    }
+                },
+                scales: {
+                    x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+                    y: { 
+                        ticks: { color: '#94a3b8' },
+                        grid: { color: '#334155' },
+                        title: { display: true, text: 'Lap Time (s)', color: '#f1f5f9' }
+                    }
+                }
+            }
+        });
+    }
+
+    function initializeStrategyCharts() {
+        // Forecast Chart
+        const forecastCtx = document.getElementById('forecastChart').getContext('2d');
+        charts.forecast = new Chart(forecastCtx, {
+            type: 'line',
+            data: {
+                labels: ['0min', '10min', '20min', '30min', '40min', '50min', '60min'],
+                datasets: [
+                    {
+                        label: 'Grip Level',
+                        data: [0.85, 0.87, 0.89, 0.91, 0.92, 0.94, 0.94],
+borderColor: '#10b981',
+backgroundColor: 'rgba(16, 185, 129, 0.1)',
+yAxisID: 'y',
+tension: 0.4,
+fill: true
+},
+{
+label: 'Temperature (°C)',
+data: [26, 27, 28, 29, 30, 30, 29],
+borderColor: '#ef4444',
+backgroundColor: 'rgba(239, 68, 68, 0.1)',
+yAxisID: 'y1',
+tension: 0.4,
+fill: true
+}
+]
+},
+options: {
+responsive: true,
+maintainAspectRatio: false,
+plugins: {
+legend: { labels: { color: '#f1f5f9' } },
+tooltip: {
+backgroundColor: 'rgba(15, 23, 42, 0.9)',
+titleColor: '#f1f5f9',
+bodyColor: '#cbd5e1'
+}
+},
+scales: {
+x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+y: {
+type: 'linear',
+position: 'left',
+ticks: { color: '#10b981' },
+grid: { color: '#334155' },
+title: { display: true, text: 'Grip', color: '#10b981' }
+},
+y1: {
+type: 'linear',
+position: 'right',
+ticks: { color: '#ef4444' },
+grid: { display: false },
+title: { display: true, text: 'Temp (°C)', color: '#ef4444' }
+}
+}
+}
+});
+}
+
+// Add this complete function after initializeStrategyCharts()
+function initializeHologram() {
+    const container = document.getElementById('hologramContainer');
+    if (!container) return;
+    
+    // Scene setup
+    hologramScene = new THREE.Scene();
+    hologramScene.background = new THREE.Color(0x000000);
+    
+    // Camera setup
+    hologramCamera = new THREE.PerspectiveCamera(
+        75,
+        container.clientWidth / container.clientHeight,
+        0.1,
+        1000
+    );
+    hologramCamera.position.set(0, 5, 15);
+    hologramCamera.lookAt(0, 0, 0);
+    
+    // Renderer setup
+    hologramRenderer = new THREE.WebGLRenderer({ antialias: true });
+    hologramRenderer.setSize(container.clientWidth, container.clientHeight);
+    container.appendChild(hologramRenderer.domElement);
+    
+    // Lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    hologramScene.add(ambientLight);
+    
+    const pointLight = new THREE.PointLight(0x2563eb, 1, 100);
+    pointLight.position.set(0, 10, 10);
+    hologramScene.add(pointLight);
+    
+    // Create track path (circular for demo)
+    const trackRadius = 8;
+    const trackSegments = 100;
+    const trackPoints = [];
+    
+    for (let i = 0; i <= trackSegments; i++) {
+        const angle = (i / trackSegments) * Math.PI * 2;
+        trackPoints.push(new THREE.Vector3(
+            Math.cos(angle) * trackRadius,
+            0,
+            Math.sin(angle) * trackRadius
+        ));
+    }
+    
+    const trackCurve = new THREE.CatmullRomCurve3(trackPoints);
+    const trackGeometry = new THREE.TubeGeometry(trackCurve, trackSegments, 0.2, 8, true);
+    const trackMaterial = new THREE.MeshPhongMaterial({
+        color: 0x475569,
+        emissive: 0x2563eb,
+        emissiveIntensity: 0.3
+    });
+    const trackMesh = new THREE.Mesh(trackGeometry, trackMaterial);
+    hologramScene.add(trackMesh);
+    
+    // Create energy flow particles
+    for (let i = 0; i < 50; i++) {
+        const angle = (i / 50) * Math.PI * 2;
+        const position = trackCurve.getPoint(i / 50);
+        
+        const particleGeometry = new THREE.SphereGeometry(0.15, 16, 16);
+        const particleMaterial = new THREE.MeshPhongMaterial({
+            color: 0x10b981,
+            emissive: 0x10b981,
+            emissiveIntensity: 0.8,
+            transparent: true,
+            opacity: 0.8
+        });
+        const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+        particle.position.copy(position);
+        particle.userData.progress = i / 50;
+        particle.userData.speed = 0.002 + Math.random() * 0.003;
+        hologramScene.add(particle);
+        energyParticles.push(particle);
+    }
+    
+    // Create time-shift delta markers
+    const deltaPositions = [0.25, 0.5, 0.65, 0.85];
+    const deltaGains = [0.173, 0.142, 0.115, 0.112];
+    
+    deltaPositions.forEach((pos, idx) => {
+        const markerPosition = trackCurve.getPoint(pos);
+        
+        // Marker sphere
+        const markerGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+        const markerMaterial = new THREE.MeshPhongMaterial({
+            color: 0xf59e0b,
+            emissive: 0xf59e0b,
+            emissiveIntensity: 1.0,
+            transparent: true,
+            opacity: 0
+        });
+        const marker = new THREE.Mesh(markerGeometry, markerMaterial);
+        marker.position.copy(markerPosition);
+        marker.position.y += 2;
+        marker.userData.visible = false;
+        marker.userData.gain = deltaGains[idx];
+        hologramScene.add(marker);
+        timeShiftMarkers.push(marker);
+        
+        // Connecting line
+        const lineGeometry = new THREE.BufferGeometry().setFromPoints([
+            markerPosition,
+            new THREE.Vector3(markerPosition.x, markerPosition.y + 2, markerPosition.z)
+        ]);
+        const lineMaterial = new THREE.LineBasicMaterial({
+            color: 0xf59e0b,
+            transparent: true,
+            opacity: 0
+        });
+        const line = new THREE.Line(lineGeometry, lineMaterial);
+        line.userData.visible = false;
+        hologramScene.add(line);
+        timeShiftMarkers.push(line);
+    });
+    
+    // Add grid
+    const gridHelper = new THREE.GridHelper(20, 20, 0x334155, 0x1e293b);
+    hologramScene.add(gridHelper);
+    
+    // Initial render
+    hologramRenderer.render(hologramScene, hologramCamera);
+    
+    // Handle window resize
+    window.addEventListener('resize', () => {
+        if (hologramCamera && hologramRenderer) {
+            hologramRenderer.setSize(container.clientWidth, container.clientHeight);
+            hologramCamera.aspect = container.clientWidth / container.clientHeight;
+            hologramCamera.updateProjectionMatrix();
+            
+        }
+    });
+    
+    // Event listeners for controls
+    document.getElementById('hologramPlay').addEventListener('click', startHologram);
+    document.getElementById('hologramPause').addEventListener('click', pauseHologram);
+    document.getElementById('hologramReset').addEventListener('click', resetHologram);
+    document.getElementById('showTimeShift').addEventListener('change', toggleTimeShift);
+}
+
+function animateHologram() {
+    if (!hologramPlaying) return;
+    
+    hologramAnimationId = requestAnimationFrame(animateHologram);
+    
+    hologramTime += 0.01;
+    
+    // Animate energy particles
+    energyParticles.forEach(particle => {
+        particle.userData.progress += particle.userData.speed;
+        if (particle.userData.progress > 1) {
+            particle.userData.progress = 0;
+        }
+        
+        // Update position along track
+        const angle = particle.userData.progress * Math.PI * 2;
+        const trackRadius = 8;
+        particle.position.x = Math.cos(angle) * trackRadius;
+        particle.position.z = Math.sin(angle) * trackRadius;
+        particle.position.y = Math.sin(hologramTime * 2 + particle.userData.progress * 10) * 0.5;
+        
+        // Pulsing effect
+        const scale = 1 + Math.sin(hologramTime * 3 + particle.userData.progress * 20) * 0.3;
+        particle.scale.set(scale, scale, scale);
+    });
+    
+    // Rotate camera
+    hologramCamera.position.x = Math.sin(hologramTime * 0.1) * 15;
+    hologramCamera.position.z = Math.cos(hologramTime * 0.1) * 15;
+    hologramCamera.lookAt(0, 0, 0);
+    
+    // Animate time-shift markers
+    if (showTimeShiftDeltas) {
+        timeShiftMarkers.forEach((marker, idx) => {
+            if (marker.userData.visible) {
+                // Pulsing animation
+                const pulse = Math.sin(hologramTime * 4) * 0.5 + 0.5;
+                marker.material.opacity = 0.6 + pulse * 0.4;
+                
+                if (marker.geometry.type === 'SphereGeometry') {
+                    const scale = 1 + pulse * 0.3;
+                    marker.scale.set(scale, scale, scale);
+                }
+            }
+        });
+    }
+    
+    hologramRenderer.render(hologramScene, hologramCamera);
+}
+
+function startHologram() {
+    hologramPlaying = true;
+    document.getElementById('hologramPlay').disabled = true;
+    document.getElementById('hologramPause').disabled = false;
+    animateHologram();
+}
+
+function pauseHologram() {
+    hologramPlaying = false;
+    document.getElementById('hologramPlay').disabled = false;
+    document.getElementById('hologramPause').disabled = true;
+    if (hologramAnimationId) {
+        cancelAnimationFrame(hologramAnimationId);
+    }
+}
+
+function resetHologram() {
+    pauseHologram();
+    hologramTime = 0;
+    
+    // Reset particle positions
+    energyParticles.forEach((particle, idx) => {
+        particle.userData.progress = idx / energyParticles.length;
+        const angle = particle.userData.progress * Math.PI * 2;
+        const trackRadius = 8;
+        particle.position.x = Math.cos(angle) * trackRadius;
+        particle.position.z = Math.sin(angle) * trackRadius;
+        particle.position.y = 0;
+        particle.scale.set(1, 1, 1);
+    });
+    
+    // Reset camera
+    hologramCamera.position.set(0, 5, 15);
+    hologramCamera.lookAt(0, 0, 0);
+    
+    hologramRenderer.render(hologramScene, hologramCamera);
+}
+
+function toggleTimeShift(event) {
+    showTimeShiftDeltas = event.target.checked;
+    
+    timeShiftMarkers.forEach(marker => {
+        marker.userData.visible = showTimeShiftDeltas;
+        marker.material.opacity = showTimeShiftDeltas ? 0.8 : 0;
+    });
+    
+    if (!hologramPlaying) {
+        hologramRenderer.render(hologramScene, hologramCamera);
+    }
+}
+
+// Initialize track map
+function initializeTrackMap(trackKey) {
+    const mapDiv = document.getElementById('trackMap');
+    mapDiv.innerHTML = '';
+    
+    if (trackMap) {
+        trackMap.remove();
+    }
+    
+    const coords = TRACK_MAPPING[trackKey].coords;
+    
+    trackMap = L.map('trackMap').setView(coords, 15);
+    
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap contributors © CARTO'
+    }).addTo(trackMap);
+
+    L.circleMarker(coords, {
+        color: '#10b981',
+        fillColor: '#10b981',
+        fillOpacity: 0.8,
+        radius: 10
+    }).addTo(trackMap).bindPopup(`<strong>${TRACK_MAPPING[trackKey].name}</strong>`);
+}
+
+// Update chart data
+function updateChartData() {
+    if (telemetryData.length === 0) return;
+
+    const sampledData = telemetryData.filter((_, i) => i % 5 === 0);
+
+    // Energy chart
+    charts.energy.data.labels = sampledData.map(d => d.time);
+    charts.energy.data.datasets[0].data = sampledData.map(d => d.speed);
+    charts.energy.data.datasets[1].data = sampledData.map(d => d.throttle);
+    charts.energy.data.datasets[2].data = sampledData.map(d => d.brakeF);
+    charts.energy.update('none');
+
+    // Speed chart
+    charts.speed.data.labels = sampledData.map(d => d.time);
+    charts.speed.data.datasets[0].data = sampledData.map(d => d.speed);
+    charts.speed.update('none');
+
+    // G-force chart
+    charts.gforce.data.datasets[0].data = sampledData.map(d => ({
+        x: parseFloat(d.accY),
+        y: parseFloat(d.accX)
+    }));
+    charts.gforce.update('none');
+
+    // Inputs chart
+    charts.inputs.data.labels = sampledData.map(d => d.time);
+    charts.inputs.data.datasets[0].data = sampledData.map(d => d.throttle);
+    charts.inputs.data.datasets[1].data = sampledData.map(d => d.brakeF);
+    charts.inputs.update('none');
+}
+
+// Create Speed/RPM/Gear Timeline with Plotly
+function createSpeedRpmGearChart() {
+    if (telemetryData.length === 0) return;
+
+    const sampledData = telemetryData.filter((_, i) => i % 10 === 0);
+    const times = sampledData.map(d => parseFloat(d.time));
+    const speeds = sampledData.map(d => d.speed);
+    const rpms = sampledData.map(d => d.rpm);
+    const gears = sampledData.map(d => d.gear);
+
+    const trace1 = {
+        x: times,
+        y: speeds,
+        name: 'Speed (km/h)',
+        type: 'scatter',
+        mode: 'lines',
+        line: { color: '#2563eb', width: 2 },
+        yaxis: 'y'
+    };
+
+    const trace2 = {
+        x: times,
+        y: rpms,
+        name: 'RPM',
+        type: 'scatter',
+        mode: 'lines',
+        line: { color: '#ef4444', width: 2 },
+        yaxis: 'y2'
+    };
+
+    const trace3 = {
+        x: times,
+        y: gears,
+        name: 'Gear',
+        type: 'scatter',
+        mode: 'lines',
+        line: { color: '#10b981', width: 2, shape: 'hv' },
+        yaxis: 'y3'
+    };
+
+    const layout = {
+        title: {
+            text: 'Speed / RPM / Gear Timeline',
+            font: { color: '#f1f5f9' }
+        },
+        xaxis: {
+            title: 'Time (s)',
+            color: '#cbd5e1',
+            gridcolor: '#334155'
+        },
+        yaxis: {
+            title: 'Speed (km/h)',
+            titlefont: { color: '#2563eb' },
+            tickfont: { color: '#2563eb' },
+            gridcolor: '#334155'
+        },
+        yaxis2: {
+            title: 'RPM',
+            titlefont: { color: '#ef4444' },
+            tickfont: { color: '#ef4444' },
+            overlaying: 'y',
+            side: 'right',
+            showgrid: false
+        },
+        yaxis3: {
+            title: 'Gear',
+            titlefont: { color: '#10b981' },
+            tickfont: { color: '#10b981' },
+            overlaying: 'y',
+            side: 'right',
+            position: 0.95,
+            showgrid: false
+        },
+        paper_bgcolor: '#1e293b',
+        plot_bgcolor: '#0f172a',
+        font: { color: '#f1f5f9' },
+        hovermode: 'x unified',
+        legend: {
+            orientation: 'h',
+            y: -0.2
+        }
+    };
+
+    const config = {
+        responsive: true,
+        displayModeBar: true,
+        modeBarButtonsToRemove: ['lasso2d', 'select2d']
+    };
+
+    Plotly.newPlot('speedRpmGearChart', [trace1, trace2, trace3], layout, config);
+}
+
+// Create Gear Usage Heatmap
+function createGearHeatmap() {
+    if (telemetryData.length === 0) return;
+
+    const times = telemetryData.map(d => parseFloat(d.time));
+    const gears = telemetryData.map(d => d.gear);
+    const speeds = telemetryData.map(d => d.speed);
+
+    const binSize = 1;
+    const maxTime = Math.max(...times);
+    const numBins = Math.ceil(maxTime / binSize);
+    
+    const heatmapData = [];
+    for (let gear = 1; gear <= 6; gear++) {
+        const row = [];
+        for (let bin = 0; bin < numBins; bin++) {
+            const binStart = bin * binSize;
+            const binEnd = (bin + 1) * binSize;
+            
+            const dataInBin = telemetryData.filter((d, i) => 
+                times[i] >= binStart && times[i] < binEnd && gears[i] === gear
+            );
+            
+            const avgSpeed = dataInBin.length > 0 
+                ? dataInBin.reduce((sum, d) => sum + d.speed, 0) / dataInBin.length 
+                : null;
+            
+            row.push(avgSpeed);
+        }
+        heatmapData.push(row);
+    }
+
+    const trace = {
+        z: heatmapData,
+        x: Array.from({length: numBins}, (_, i) => i * binSize),
+        y: [1, 2, 3, 4, 5, 6],
+        type: 'heatmap',
+        colorscale: 'Viridis',
+        colorbar: {
+            title: 'Speed (km/h)',
+            titlefont: { color: '#f1f5f9' },
+            tickfont: { color: '#f1f5f9' }
+        }
+    };
+
+    const layout = {
+        title: {
+            text: 'Gear Usage Heatmap',
+            font: { color: '#f1f5f9' }
+        },
+        xaxis: {
+            title: 'Time (s)',
+            color: '#cbd5e1',
+            gridcolor: '#334155'
+        },
+        yaxis: {
+            title: 'Gear',
+            color: '#cbd5e1',
+            gridcolor: '#334155',
+            dtick: 1
+        },
+        paper_bgcolor: '#1e293b',
+        plot_bgcolor: '#0f172a',
+        font: { color: '#f1f5f9' }
+    };
+
+    const config = {
+        responsive: true,
+        displayModeBar: true
+    };
+
+    Plotly.newPlot('gearHeatmap', [trace], layout, config);
+}
+
+// Populate driver select
+function populateDriverSelect() {
+    const select = document.getElementById('driverSelect');
+    select.innerHTML = '<option value="">All Drivers</option>';
+    
+    driverData.forEach(driver => {
+        const option = document.createElement('option');
+        option.value = driver.driver;
+        option.textContent = `Driver ${driver.driver}`;
+        select.appendChild(option);
+    });
+}
+
+// Create driver leaderboard
+function createDriverLeaderboard() {
+    const leaderboard = document.getElementById('driverLeaderboard');
+    leaderboard.innerHTML = driverData.map((driver, idx) => `
+        <div class="driver-card animate__animated animate__fadeInLeft" style="animation-delay: ${idx * 0.05}s">
+            <div class="driver-position">${idx + 1}</div>
+            <div class="flex-grow-1">
+                <h6 class="mb-1">Driver ${driver.driver}</h6>
+                <small class="text-secondary">
+                    <i class="bi bi-clock"></i> ${driver.bestLap.toFixed(3)}s | 
+                    <i class="bi bi-speedometer"></i> ${driver.avgSpeed} km/h | 
+                    <i class="bi bi-battery-charging"></i> ${driver.efficiency.toFixed(1)}%
+                </small>
+            </div>
+            <div>
+                <span class="badge badge-custom" style="background: rgba(37, 99, 235, 0.2); color: var(--primary-blue);">
+                    ${driver.style}
+                </span>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Create driver statistics
+function createDriverStatistics() {
+    const tbody = document.getElementById('driverStatsBody');
+    tbody.innerHTML = driverData.map((driver, idx) => `
+        <tr>
+            <td style="color: darkred;"><strong>${idx + 1}</strong></td>
+            <td style="color: darkred;"><strong>Driver ${driver.driver}</strong></td>
+            <td style="color: darkred;"><strong>${driver.bestLap.toFixed(3)}s</strong></td>
+            <td style="color: darkred;"><strong>${driver.avgSpeed} km/h</strong></td>
+            <td style="color: darkred;">
+                <div class="d-flex align-items-center">
+                    <div class="progress progress-custom flex-grow-1 me-2" style="height: 6px; width: 60px;">
+                        <div class="progress-bar-custom" style="width: ${driver.efficiency}%"></div>
+                    </div>
+                    <strong>${driver.efficiency.toFixed(1)}%</strong>
+                </div>
+            </td>
+            <td><span class="badge" style="background: rgba(124, 58, 237, 0.2); color: var(--primary-purple);"><strong>${driver.style}</strong></span></td>
+            <td style="color: darkred;"><strong>${driver.laps}</strong></td>
+        </tr>
+    `).join('');
+}
+
+// Update lap times chart
+function updateLapTimesChart() {
+    const colors = ['#2563eb', '#7c3aed', '#10b981', '#f59e0b', '#ef4444'];
+
+    charts.lapTimes.data.labels = Array.from({length: 12}, (_, i) => `Lap ${i + 1}`);
+    charts.lapTimes.data.datasets = driverData.map((driver, idx) => ({
+        label: `Driver ${driver.driver}`,
+        data: Array.from({length: 12}, (_, lapIdx) => driver.bestLap + Math.random() * 2 - (lapIdx * 0.02)),
+        borderColor: colors[idx],
+        tension: 0.4
+    }));
+
+    charts.lapTimes.update();
+}
+
+// Create Speed Box Plot
+function createSpeedBoxPlot() {
+    const traces = driverData.map(driver => ({
+        y: Array.from({length: 20}, () => parseFloat(driver.avgSpeed) + (Math.random() - 0.5) * 20),
+        type: 'box',
+        name: `D${driver.driver}`,
+        marker: { color: '#2563eb' }
+    }));
+
+    const layout = {
+        title: {
+            text: 'Speed Distribution by Driver',
+            font: { color: '#f1f5f9' }
+        },
+        yaxis: {
+            title: 'Speed (km/h)',
+            color: '#cbd5e1',
+            gridcolor: '#334155'
+        },
+        xaxis: {
+            color: '#cbd5e1'
+        },
+        paper_bgcolor: '#1e293b',
+        plot_bgcolor: '#0f172a',
+        font: { color: '#f1f5f9' },
+        showlegend: false
+    };
+
+    const config = {
+        responsive: true,
+        displayModeBar: true
+    };
+
+    Plotly.newPlot('speedBoxPlot', traces, layout, config);
+}
+
+// Create Speed vs Efficiency Scatter
+function createSpeedEfficiencyScatter() {
+    const styleColors = {
+        'Smooth Roller': '#10b981',
+        'Late Braker': '#ef4444',
+        'Throttle Stabber': '#f59e0b',
+        'High Rotation': '#7c3aed',
+        'Early Braker': '#2563eb'
+    };
+
+    const traces = Object.keys(styleColors).map(style => {
+        const driversWithStyle = driverData.filter(d => d.style === style);
+        
+        return {
+            x: driversWithStyle.map(d => parseFloat(d.avgSpeed)),
+            y: driversWithStyle.map(d => parseFloat(d.efficiency)),
+            text: driversWithStyle.map(d => `Driver ${d.driver}<br>Best: ${d.bestLap.toFixed(3)}s`),
+            name: style,
+            mode: 'markers',
+            type: 'scatter',
+            marker: {
+                size: 12,
+                color: styleColors[style],
+                line: {
+                    color: 'white',
+                    width: 1
+                }
+            }
+        };
+    });
+
+    const layout = {
+        title: {
+            text: 'Speed vs Energy Efficiency',
+            font: { color: '#f1f5f9' }
+        },
+        xaxis: {
+            title: 'Average Speed (km/h)',
+            color: '#cbd5e1',
+            gridcolor: '#334155'
+        },
+        yaxis: {
+            title: 'Energy Efficiency (%)',
+            color: '#cbd5e1',
+            gridcolor: '#334155'
+        },
+        paper_bgcolor: '#1e293b',
+        plot_bgcolor: '#0f172a',
+        font: { color: '#f1f5f9' },
+        hovermode: 'closest',
+        legend: {
+            orientation: 'h',
+            y: -0.2
+        }
+    };
+
+    const config = {
+        responsive: true,
+        displayModeBar: true
+    };
+
+    Plotly.newPlot('speedEfficiencyScatter', traces, layout, config);
+}
+
+// Generate time-shift suggestions
+function generateTimeshiftSuggestions() {
+    const suggestions = [
+        {
+            sector: 'Turn 1',
+            type: 'Braking Optimization',
+            description: 'Braking 12.3m later at the 100m board reduces brake energy by 6.1kJ and gains time through maintaining momentum.',
+            gain: 0.173,
+            difficulty: 'Medium',
+            energy_saved: 6.1
+        },
+        {
+            sector: 'Turn 3',
+            type: 'Throttle Application',
+            description: 'Applying throttle 7.8m earlier at apex exit adds 2.3kJ but improves exit speed, yielding net time gain.',
+            gain: 0.142,
+            difficulty: 'Easy',
+            energy_saved: -2.3
+        },
+        {
+            sector: 'Turn 7',
+            type: 'Apex Speed',
+            description: 'Carrying 2.1 m/s more through Turn 7 apex reduces total corner time and improves sector performance.',
+            gain: 0.115,
+            difficulty: 'Hard',
+            energy_saved: 1.8
+        },
+        {
+            sector: 'Turn 12',
+            type: 'Line Optimization',
+            description: 'Tighter apex entry (5.2° more rotation) enables earlier throttle application and better corner exit.',
+            gain: 0.112,
+            difficulty: 'Hard',
+            energy_saved: 4.2
+        }
+    ];
+
+    const container = document.getElementById('timeshiftSuggestions');
+    container.innerHTML = suggestions.map((sug, idx) => `
+        <div class="suggestion-card animate__animated animate__fadeInUp" style="animation-delay: ${idx * 0.1}s">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                    <h6 class="mb-1">${sug.sector} - ${sug.type}</h6>
+                    <small class="text-secondary">Difficulty: <strong>${sug.difficulty}</strong></small>
+                </div>
+                <span class="suggestion-gain">+${sug.gain.toFixed(3)}s</span>
+            </div>
+            <p class="mb-2">${sug.description}</p>
+            <div class="d-flex justify-content-between text-secondary">
+                <small><i class="bi bi-lightning-charge"></i> Energy Impact: ${sug.energy_saved > 0 ? '+' : ''}${sug.energy_saved.toFixed(1)} kJ</small>
+                <small><i class="bi bi-arrow-up-right"></i> Position Impact: ~1 place</small>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Generate strategy alerts
+function generateStrategyAlerts() {
+    const alerts = [
+        {
+            severity: 'medium',
+            source: 'Energy Field Agent',
+            message: 'Energy risk detected in Sector 2 - excessive braking energy (15% above reference lap). Consider earlier brake point with gradual pressure.',
+            timestamp: 'Now'
+        },
+        {
+            severity: 'high',
+            source: 'Strategy Agent',
+            message: 'Optimal pit window opening in 3 laps. Competitor expected to pit lap 18-20. Undercut opportunity available with 2-lap offset.',
+            timestamp: '2 min ago'
+        },
+        {
+            severity: 'low',
+            source: 'Opponent Dynamics Agent',
+            message: 'P4 driver showing 12% higher tire degradation rate. Predicted performance drop in 5-7 laps. Maintain consistent pace for position gain.',
+            timestamp: '5 min ago'
+        },
+        {
+            severity: 'medium',
+            source: 'Driver Time-Shift Agent',
+            message: 'Lap time delta analysis shows 0.542s total improvement potential across 4 optimization zones. Priority: Turn 1 braking (+0.173s).',
+            timestamp: '8 min ago'
+        }
+    ];
+
+    const container = document.getElementById('strategyAlerts');
+    container.innerHTML = alerts.map((alert, idx) => `
+        <div class="alert-custom alert-${alert.severity} animate__animated animate__fadeIn" style="animation-delay: ${idx * 0.1}s">
+            <div class="d-flex justify-content-between align-items-start mb-1">
+                <strong>${alert.source}</strong>
+                <small class="text-secondary">${alert.timestamp}</small>
+            </div>
+            <p class="mb-0 small">${alert.message}</p>
+        </div>
+    `).join('');
+
+    // Update sector times
+    const sectorContainer = document.getElementById('sectorTimes');
+    const sectors = [
+        { id: 'S1', name: 'Sector 1', time: '28.456', best: true },
+        { id: 'S2', name: 'Sector 2', time: '31.234', best: false },
+        { id: 'S3', name: 'Sector 3', time: '31.544', best: false }
+    ];
+
+    sectorContainer.innerHTML = sectors.map(sector => `
+        <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">${sector.name}</h6>
+                <span class="${sector.best ? 'sector-badge sector-fastest' : 'badge bg-secondary'}">${sector.time}s</span>
+            </div>
+            <div class="progress progress-custom">
+                <div class="progress-bar-custom" style="width: ${(28 / parseFloat(sector.time)) * 100}%"></div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Generate AI recommendations
+function generateAIRecommendations() {
+    const recommendations = [
+        {
+            agent: 'Energy Field Agent',
+            icon: 'bi-lightning-charge-fill',
+            color: '#f59e0b',
+            recommendation: 'Current energy efficiency at 87.3% is above optimal threshold. Maintain consistent brake release modulation in Turn 3-5 complex to preserve tire operating temperature window (95-105°C).',
+            confidence: 0.92
+        },
+        {
+            agent: 'Driver Time-Shift Agent',
+            icon: 'bi-speedometer2',
+            color: '#2563eb',
+            recommendation: 'Top optimization identified: Brake 12.3m later in Turn 1 for +0.173s gain. Combined sector improvements across 4 zones predict +0.542s total lap time reduction, translating to approximately 2 grid positions.',
+            confidence: 0.85
+        },
+        {
+            agent: 'Strategy Agent',
+            icon: 'bi-flag-fill',
+            color: '#10b981',
+            recommendation: 'Extend current stint to lap 24 (6 laps beyond P4 competitor). Tire degradation sustainable with 0.05s/lap time loss. Track position after pit stops predicted: P3. Fuel strategy confirms 2-lap safety margin.',
+            confidence: 0.83
+        },
+        {
+            agent: 'Opponent Dynamics Agent',
+            icon: 'bi-eye-fill',
+            color: '#7c3aed',
+            recommendation: 'P4 competitor classified as "Aggressive Attacker" with 12% faster tire degradation rate and energy consumption 8% above field average. Counter-strategy: Maintain consistent pace, execute undercut lap 22 for position gain.',
+            confidence: 0.78
+        }
+    ];
+
+    const container = document.getElementById('aiRecommendations');
+    container.innerHTML = recommendations.map((rec, idx) => `
+        <div class="card mb-3 animate__animated animate__fadeInLeft" style="animation-delay: ${idx * 0.1}s">
+            <div class="card-body">
+                <div class="d-flex align-items-start mb-2">
+                    <div class="me-3">
+                        <i class="bi ${rec.icon}" style="font-size: 2rem; color: ${rec.color}"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1">${rec.agent}</h6>
+                        <p class="mb-2">${rec.recommendation}</p>
+                        <div class="d-flex align-items-center">
+                            <small class="text-secondary me-3">Confidence: ${(rec.confidence * 100).toFixed(0)}%</small>
+                            <div class="progress progress-custom" style="width: 150px; height: 6px;">
+                                <div class="progress-bar-custom" style="width: ${rec.confidence * 100}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Start live telemetry stream
+function startLiveStream() {
+    const streamDiv = document.getElementById('telemetryStream');
+    let counter = 0;
+
+    setInterval(() => {
+        if (telemetryData.length === 0) return;
+        
+        const idx = counter % telemetryData.length;
+        const data = telemetryData[idx];
+        
+        const line = `[${data.time}s] SPD:${data.speed.toFixed(1)}km/h G:${data.gear} RPM:${data.rpm.toFixed(0)} THR:${data.throttle.toFixed(0)}% BRK:${data.brakeF.toFixed(0)}bar\n`;
+        
+        streamDiv.textContent = line + streamDiv.textContent;
+        
+        const lines = streamDiv.textContent.split('\n');
+        if (lines.length > 15) {
+            streamDiv.textContent = lines.slice(0, 15).join('\n');
+        }
+        
+        counter++;
+    }, 100);
+}
+
+// Refresh all data
+function refreshAllData() {
+    const btn = document.getElementById('refreshData');
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<span class="loading-spinner"></span> Refreshing...';
+    btn.disabled = true;
+
+    setTimeout(() => {
+        generateMockData();
+        generateTimeshiftSuggestions();
+        generateStrategyAlerts();
+        generateAIRecommendations();
+
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
+
+        showNotification('Data refreshed successfully', 'success');
+    }, 1500);
+}
+
+// Show notification
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = 'position-fixed top-0 end-0 p-3';
+    notification.style.zIndex = '9999';
+    notification.innerHTML = `
+        <div class="alert alert-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'info'} alert-dismissible fade show animate__animated animate__fadeInRight" role="alert" style="min-width: 300px;">
+            <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'}"></i> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+        notification.querySelector('.alert').classList.remove('show');
+        setTimeout(() => notification.remove(), 300);
+    }, 4000);
+}
+
+// Log system information
+console.log('%c EngiTorqueMap Dashboard ', 'background: linear-gradient(135deg, #2563eb, #7c3aed); color: white; font-size: 20px; font-weight: bold; padding: 10px;');
+console.log('%c Real-Time Energy Field Maps + Predictive Driver Time-Shift Optimizer ', 'color: #10b981; font-size: 14px; font-weight: bold;');
+console.log('%c Version 1.0.0 | All Systems Operational ', 'color: #94a3b8; font-size: 12px;');
+console.log('━'.repeat(80));
+console.log('✓ AI-powered technique optimization with time-shift predictions (+0.542s)');
+console.log('✓ Weather-based grip forecasting (0.85-0.94) and optimal strategy planning');
+console.log('✓ Energy drift detection (±6.1kJ) and tire stress accumulation tracking');
+console.log('✓ 100Hz telemetry streaming with live energy flow visualization');
+console.log('✓ 3D energy holograms, multi-agent AI (4 agents), community detection');
+console.log('✓ Pit strategy optimization (lap 24), opponent profiling, risk assessment (92%)');
+console.log('━'.repeat(80));
+
+// Initial notification
+setTimeout(() => {
+    showNotification('Connected to telemetry stream', 'success');
+}, 1000);
+</script>
+</body>
+</html>
